@@ -1,0 +1,846 @@
+clear;
+clc;
+close all;
+
+%% ============================================================
+%  BATCH HEMORRHAGE DETECTION
+%  Simple + Fast version for ML dataset generation
+% =============================================================
+
+inputFolder = ...
+    "C:\Users\shuvr\Downloads\New folder\TOP 50 test";
+
+outputFolder = "C:\Users\shuvr\Downloads\New folder\Heamorhage data set";
+
+if ~isfolder(outputFolder)
+    mkdir(outputFolder);
+end
+
+
+%% ============================================================
+% FIND IMAGES
+% =============================================================
+
+files = [
+    dir(fullfile(inputFolder,"*.jpg"));
+    dir(fullfile(inputFolder,"*.jpeg"));
+    dir(fullfile(inputFolder,"*.png"))
+];
+
+if isempty(files)
+    error("No JPG, JPEG, or PNG images found.");
+end
+
+
+fprintf("\n============================================\n");
+fprintf("BATCH HEMORRHAGE DETECTION\n");
+fprintf("============================================\n");
+fprintf("Input images found = %d\n",length(files));
+fprintf("============================================\n\n");
+
+
+%% ============================================================
+% PROCESS EACH IMAGE
+% ============================================================
+
+for i = 1:length(files)
+
+    inputPath = fullfile(files(i).folder,files(i).name);
+
+    fprintf("\n============================================\n");
+    fprintf("[%d/%d] %s\n",i,length(files),files(i).name);
+    fprintf("============================================\n");
+
+    try
+
+        %% ----------------------------------------------------
+        % READ IMAGE
+        % -----------------------------------------------------
+
+        I_original = imread(inputPath);
+
+        if size(I_original,3) ~= 3
+            error("Image is not RGB.");
+        end
+
+        outputImage = I_original;
+
+        I = im2double(I_original);
+
+        R = I(:,:,1);
+        G = I(:,:,2);
+        B = I(:,:,3);
+
+        gray = rgb2gray(I);
+
+
+        %% ====================================================
+        % PHASE 1 — RETINAL MASK
+        % ====================================================
+
+        cornerSize = 30;
+
+        cornerPixels = [
+            reshape(I(1:cornerSize, ...
+                1:cornerSize,:),[],3);
+
+            reshape(I(1:cornerSize, ...
+                end-cornerSize+1:end,:),[],3);
+
+            reshape(I(end-cornerSize+1:end, ...
+                1:cornerSize,:),[],3);
+
+            reshape(I(end-cornerSize+1:end, ...
+                end-cornerSize+1:end,:),[],3)
+        ];
+
+        backgroundColor = median(cornerPixels,1);
+
+        D = sqrt( ...
+            (R-backgroundColor(1)).^2 + ...
+            (G-backgroundColor(2)).^2 + ...
+            (B-backgroundColor(3)).^2 );
+
+        D = mat2gray(D);
+
+        thresholdMask = graythresh(D);
+
+        mask = D > thresholdMask;
+
+        mask = bwareaopen(mask,500);
+
+        if ~any(mask(:))
+            error("Retinal region could not be detected.");
+        end
+
+        mask = bwareafilt(mask,1);
+
+        mask = imclose(mask,strel('disk',10));
+
+        mask = imfill(mask,'holes');
+
+        mask = imerode(mask,strel('disk',5));
+
+
+        %% ====================================================
+        % PHASE 2 — DARK HEMORRHAGE RESPONSE
+        % ====================================================
+
+        grayMasked = gray;
+
+        grayMasked(~mask) = 0;
+
+        background = imgaussfilt(grayMasked,25);
+
+        darkResponse = background - grayMasked;
+
+        darkResponse(~mask) = 0;
+
+        darkResponse = mat2gray(darkResponse);
+
+
+        %% ====================================================
+        % PHASE 3 — BLACK-HAT RESPONSE
+        % ====================================================
+
+        BH1 = imbothat(grayMasked,strel('disk',5));
+
+        BH2 = imbothat(grayMasked,strel('disk',9));
+
+        BH3 = imbothat(grayMasked,strel('disk',15));
+
+        BH4 = imbothat(grayMasked,strel('disk',25));
+
+        BH1(~mask) = 0;
+        BH2(~mask) = 0;
+        BH3(~mask) = 0;
+        BH4(~mask) = 0;
+
+        blackHat = max( ...
+            cat(3,BH1,BH2,BH3,BH4), ...
+            [],3);
+
+        blackHat = mat2gray(blackHat);
+
+        blackHat(~mask) = 0;
+
+
+        %% ====================================================
+        % COMBINE RESPONSES
+        % ====================================================
+
+        HE_response = ...
+            0.5*darkResponse + ...
+            0.5*blackHat;
+
+        HE_response(~mask) = 0;
+
+
+        %% ====================================================
+        % INITIAL THRESHOLD
+        % ====================================================
+
+        responseValues = HE_response(mask);
+
+        responseThreshold = prctile( ...
+            responseValues,90);
+
+        HE_candidate = ...
+            HE_response >= responseThreshold;
+
+        HE_candidate(~mask) = 0;
+
+
+        %% ====================================================
+        % PHASE 4 — INITIAL CANDIDATES
+        % ====================================================
+
+        CC = bwconncomp(HE_candidate);
+
+        stats = regionprops(CC, ...
+            'Area', ...
+            'Perimeter', ...
+            'Eccentricity', ...
+            'Solidity', ...
+            'MajorAxisLength', ...
+            'MinorAxisLength');
+
+        numCandidates = CC.NumObjects;
+
+        fprintf("Initial candidates = %d\n", ...
+            numCandidates);
+
+
+        %% ====================================================
+        % BASIC MORPHOLOGICAL FILTERING
+        % ====================================================
+
+        candidateMask = false(size(gray));
+
+        for k = 1:numCandidates
+
+            area = stats(k).Area;
+
+            majorAxis = stats(k).MajorAxisLength;
+
+            minorAxis = stats(k).MinorAxisLength;
+
+            eccentricity = stats(k).Eccentricity;
+
+            solidity = stats(k).Solidity;
+
+
+            %% Estimated thickness
+
+            if majorAxis > 0
+
+                estimatedThickness = ...
+                    area / majorAxis;
+
+            else
+
+                estimatedThickness = 0;
+
+            end
+
+
+            keep = true;
+
+
+            %% Remove tiny objects
+
+            if area < 50
+
+                keep = false;
+
+            end
+
+
+            %% Remove extremely thin objects
+
+            if estimatedThickness < 1.5 && ...
+                    area < 500
+
+                keep = false;
+
+            end
+
+
+            %% Remove extremely elongated tiny objects
+
+            if eccentricity > 0.98 && ...
+                    area < 500
+
+                keep = false;
+
+            end
+
+
+            %% Remove very irregular tiny objects
+
+            if solidity < 0.25 && ...
+                    area < 300
+
+                keep = false;
+
+            end
+
+
+            if keep
+
+                candidateMask( ...
+                    CC.PixelIdxList{k}) = true;
+
+            end
+
+        end
+
+
+        %% ====================================================
+        % MORPHOLOGY
+        % ====================================================
+
+        candidateMask = imclose( ...
+            candidateMask, ...
+            strel('disk',2));
+
+        candidateMask = imfill( ...
+            candidateMask,'holes');
+
+        candidateMask = bwareaopen( ...
+            candidateMask,50);
+
+        candidateMask(~mask) = 0;
+
+
+        %% ====================================================
+        % SECOND CONNECTED COMPONENT ANALYSIS
+        % ====================================================
+
+        CC4 = bwconncomp(candidateMask);
+
+        stats4 = regionprops(CC4, ...
+            'Area', ...
+            'Centroid', ...
+            'BoundingBox', ...
+            'MajorAxisLength', ...
+            'MinorAxisLength');
+
+        numCandidates4 = CC4.NumObjects;
+
+        fprintf("After morphology = %d\n", ...
+            numCandidates4);
+
+
+        %% ====================================================
+        % HEMORRHAGE COLOUR PARAMETERS
+        % ====================================================
+
+        MIN_RED_DIFFERENCE = 0.030;
+
+        MIN_RED_RATIO = 1.06;
+
+        MIN_DARK_FRACTION = 0.35;
+
+        MIN_LOCAL_DARKNESS = 0.015;
+
+
+        %% ====================================================
+        % FINAL HEMORRHAGE SELECTION
+        % ====================================================
+
+        HE_phase4 = false(size(gray));
+
+
+        for k = 1:numCandidates4
+
+            pixels = CC4.PixelIdxList{k};
+
+            candidate = false(size(candidateMask));
+
+            candidate(pixels) = true;
+
+            area = stats4(k).Area;
+
+            majorAxis = stats4(k).MajorAxisLength;
+
+
+            %% ------------------------------------------------
+            % RGB INFORMATION
+            % -------------------------------------------------
+
+            candidateR = R(pixels);
+
+            candidateG = G(pixels);
+
+            candidateB = B(pixels);
+
+            candidateGray = gray(pixels);
+
+
+            meanR = mean(candidateR);
+
+            meanG = mean(candidateG);
+
+            meanB = mean(candidateB);
+
+            meanGray = mean(candidateGray);
+
+
+            %% ------------------------------------------------
+            % RED DIFFERENCE
+            % -------------------------------------------------
+
+            redDifference = ...
+                meanR - meanG;
+
+
+            %% ------------------------------------------------
+            % RED RATIO
+            % -------------------------------------------------
+
+            redRatio = ...
+                meanR / (meanG + eps);
+
+
+            %% ------------------------------------------------
+            % LOCAL SURROUNDING REGION
+            % -------------------------------------------------
+
+            surrounding = imdilate( ...
+                candidate, ...
+                strel('disk',8));
+
+            surrounding = ...
+                surrounding & ...
+                ~candidate & ...
+                mask;
+
+
+            surroundingPixels = ...
+                gray(surrounding);
+
+
+            if isempty(surroundingPixels)
+
+                surroundingMean = meanGray;
+
+            else
+
+                surroundingMean = ...
+                    mean(surroundingPixels);
+
+            end
+
+
+            %% ------------------------------------------------
+            % LOCAL DARKNESS
+            % -------------------------------------------------
+
+            localDarkness = ...
+                surroundingMean - meanGray;
+
+
+            %% ------------------------------------------------
+            % DARK PIXEL FRACTION
+            % -------------------------------------------------
+
+            localDarkThreshold = ...
+                surroundingMean - 0.02;
+
+            darkPixels = ...
+                candidateGray < localDarkThreshold;
+
+
+            %% ------------------------------------------------
+            % RED PIXELS
+            % -------------------------------------------------
+
+            redPixels = ...
+                (candidateR - candidateG) ...
+                > MIN_RED_DIFFERENCE;
+
+
+            redPixels2 = ...
+                candidateR > ...
+                candidateG * MIN_RED_RATIO;
+
+
+            %% ------------------------------------------------
+            % DARK + RED PIXELS
+            % -------------------------------------------------
+
+            darkRedPixels = ...
+                darkPixels & ...
+                redPixels & ...
+                redPixels2;
+
+
+            darkRedFraction = ...
+                mean(darkRedPixels);
+
+
+            %% =================================================
+            % BASIC HEMORRHAGE DECISION
+            % =================================================
+
+            keep = true;
+
+
+            %% Local darkness check
+
+            if localDarkness < ...
+                    MIN_LOCAL_DARKNESS
+
+                keep = false;
+
+            end
+
+
+            %% Dark-red pixel check
+
+            if darkRedFraction < ...
+                    MIN_DARK_FRACTION
+
+                keep = false;
+
+            end
+
+
+            %% Red colour check
+
+            if redDifference < ...
+                    MIN_RED_DIFFERENCE && ...
+                    redRatio < MIN_RED_RATIO
+
+                keep = false;
+
+            end
+
+
+            %% =================================================
+            % STRONG HEMORRHAGE CANDIDATE
+            % =================================================
+
+            strongCandidate = ...
+                localDarkness > 0.07 && ...
+                darkRedFraction > 0.55;
+
+
+            %% =================================================
+            % SIMPLE VESSEL REJECTION
+            %
+            % NO BWSKEL
+            % NO EXPENSIVE SKELETONIZATION
+            %
+            % Long thin structures are more likely to be
+            % vessels than hemorrhages.
+            % =================================================
+
+            if area > 0
+
+                continuityRatio = ...
+                    majorAxis / sqrt(area);
+
+            else
+
+                continuityRatio = Inf;
+
+            end
+
+
+            %% Long continuous / elongated structure
+
+            longContinuousStructure = ...
+                majorAxis > 20 && ...
+                continuityRatio > 2.5;
+
+
+            %% Reject obvious vessel-like structure
+            %% unless it is a strong hemorrhage candidate
+
+            if longContinuousStructure && ...
+                    ~strongCandidate
+
+                keep = false;
+
+            end
+
+
+            %% -------------------------------------------------
+            % FINAL KEEP
+            % -------------------------------------------------
+
+            if keep
+
+                HE_phase4( ...
+                    CC4.PixelIdxList{k}) = true;
+
+            end
+
+        end
+
+
+        %% ====================================================
+        % FINAL MORPHOLOGICAL CLEANUP
+        % ====================================================
+
+        HE_phase4 = imclose( ...
+            HE_phase4, ...
+            strel('disk',2));
+
+        HE_phase4 = imfill( ...
+            HE_phase4,'holes');
+
+        HE_phase4 = bwareaopen( ...
+            HE_phase4,50);
+
+        HE_phase4(~mask) = 0;
+
+
+        %% ====================================================
+        % FINAL SMALL-OBJECT CLEANUP
+        % ====================================================
+
+        CCfinal = bwconncomp(HE_phase4);
+
+        statsFinal = regionprops( ...
+            CCfinal,'Area', ...
+            'MajorAxisLength');
+
+        cleanedMask = ...
+            false(size(HE_phase4));
+
+
+        for k = 1:CCfinal.NumObjects
+
+            pixels = ...
+                CCfinal.PixelIdxList{k};
+
+            area = statsFinal(k).Area;
+
+            majorAxis = ...
+                statsFinal(k).MajorAxisLength;
+
+
+            keep = true;
+
+
+            %% Remove very small regions
+
+            if area < 60
+
+                keep = false;
+
+            end
+
+
+            %% Cheap continuity check again
+
+            if area > 0
+
+                continuityRatio = ...
+                    majorAxis / sqrt(area);
+
+            else
+
+                continuityRatio = Inf;
+
+            end
+
+
+            %% Remove obvious long structures
+
+            if majorAxis > 20 && ...
+                    continuityRatio > 2.5
+
+                keep = false;
+
+            end
+
+
+            if keep
+
+                cleanedMask(pixels) = true;
+
+            end
+
+        end
+
+
+        %% Final mask
+
+        HE_phase4 = cleanedMask;
+
+        HE_phase4(~mask) = 0;
+
+
+        %% ====================================================
+        % CREATE MARKED IMAGE
+        % ====================================================
+
+        outputImage = I_original;
+
+
+        boundary = bwperim(HE_phase4);
+
+        boundary = imdilate( ...
+            boundary, ...
+            strel('disk',1));
+
+
+        %% Red boundary
+
+        outputImage(:,:,1) = uint8(max( ...
+            double(outputImage(:,:,1)), ...
+            255 * double(boundary)));
+
+
+        %% Darken green inside boundary
+
+        outputImage(:,:,2) = uint8( ...
+            double(outputImage(:,:,2)) .* ...
+            double(~boundary));
+
+
+        %% Darken blue inside boundary
+
+        outputImage(:,:,3) = uint8( ...
+            double(outputImage(:,:,3)) .* ...
+            double(~boundary));
+
+
+        %% ====================================================
+        % SAVE RESULT
+        % ====================================================
+
+        outputPath = ...
+            fullfile(outputFolder,files(i).name);
+
+        imwrite(outputImage,outputPath);
+
+
+        %% ====================================================
+        % FINAL STATISTICS
+        % ====================================================
+
+        finalCC = ...
+            bwconncomp(HE_phase4);
+
+        finalCount = ...
+            finalCC.NumObjects;
+
+
+        totalHEPixels = ...
+            nnz(HE_phase4);
+
+        retinalPixels = ...
+            nnz(mask);
+
+
+        if retinalPixels > 0
+
+            HE_area_ratio = ...
+                totalHEPixels / retinalPixels;
+
+        else
+
+            HE_area_ratio = 0;
+
+        end
+
+
+        fprintf("Final HE candidates = %d\n", ...
+            finalCount);
+
+        fprintf("HE area ratio = %.5f\n", ...
+            HE_area_ratio);
+
+        fprintf("Saved successfully.\n");
+
+
+        %% ====================================================
+        % DISPLAY
+        % ====================================================
+
+        figure(1);
+
+        clf;
+
+
+        subplot(2,2,1);
+
+        imshow(I_original);
+
+        title('Original');
+
+
+        subplot(2,2,2);
+
+        imshow(HE_response,[]);
+
+        title('Hemorrhage Response');
+
+
+        subplot(2,2,3);
+
+        imshow(HE_phase4);
+
+        title('Final Hemorrhage Mask');
+
+
+        subplot(2,2,4);
+
+        imshow(outputImage);
+
+        title('Detected Hemorrhages');
+
+
+        sgtitle( ...
+            sprintf( ...
+            'Hemorrhage Detection: %s', ...
+            files(i).name), ...
+            'Interpreter','none');
+
+
+        drawnow;
+
+
+    %% ========================================================
+    % ERROR HANDLING
+    % ========================================================
+
+    catch ME
+
+        fprintf("\nFAILED\n");
+
+        fprintf("%s\n",ME.message);
+
+
+        if ~isempty(ME.stack)
+
+            fprintf( ...
+                "Error in %s, line %d\n", ...
+                ME.stack(1).name, ...
+                ME.stack(1).line);
+
+        end
+
+    end
+
+end
+
+
+%% ============================================================
+% COMPLETE
+% =============================================================
+
+fprintf("\n============================================\n");
+fprintf("BATCH PROCESSING COMPLETE\n");
+fprintf("============================================\n");
+
+fprintf("Results saved to:\n");
+
+fprintf("%s\n",outputFolder);
+
+fprintf("============================================\n");

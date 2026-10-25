@@ -1,0 +1,91 @@
+%% ============================================================
+% BATCH MICROANEURYSM DETECTION
+% Uses the existing detectMicroaneurysms.m function
+% ============================================================
+
+clear;
+clc;
+close all;
+
+%% ============================================================
+% INPUT / OUTPUT FOLDERS
+% ============================================================
+
+inputFolder = "C:\Users\shuvr\Downloads\archive\Imagenes\Imagenes";
+
+outputFolder = "C:\Users\shuvr\Downloads\Microaneurysm_Results";
+
+if ~exist(outputFolder,"dir")
+    mkdir(outputFolder);
+end
+
+%% ============================================================
+% FIND IMAGES
+% ============================================================
+
+files = [
+    dir(fullfile(inputFolder,"*.jpg"));
+    dir(fullfile(inputFolder,"*.jpeg"));
+    dir(fullfile(inputFolder,"*.png"))
+];
+
+numImages = length(files);
+
+fprintf("\n============================================\n");
+fprintf("MICROANEURYSM BATCH PROCESSING\n");
+fprintf("Total images found: %d\n",numImages);
+fprintf("============================================\n\n");
+
+%% ============================================================
+% PROCESS ALL IMAGES
+% ============================================================
+
+for i = 1:numImages
+
+    fprintf("Processing image %d/%d: %s\n", ...
+        i,numImages,files(i).name);
+
+    filepath = fullfile(inputFolder,files(i).name);
+
+    try
+
+        % ----------------------------------------------------
+        % CALL YOUR EXISTING WORKING FUNCTION
+        % ONLY ONE OUTPUT
+        % ----------------------------------------------------
+
+        outputImage = detectMicroaneurysms_boundary_only(filepath);
+
+        % ----------------------------------------------------
+        % SAVE MARKED FUNDUS
+        % ----------------------------------------------------
+
+        [~,name,~] = fileparts(files(i).name);
+
+        outputPath = fullfile( ...
+            outputFolder, ...
+            name + "_MA_Detected.png");
+
+        imwrite(outputImage,outputPath);
+
+        fprintf("  SUCCESS: saved\n");
+        fprintf("  Output: %s\n\n",outputPath);
+
+    catch ME
+
+        fprintf("  ERROR: %s\n\n",ME.message);
+
+    end
+
+end
+
+%% ============================================================
+% COMPLETE
+% ============================================================
+
+fprintf("============================================\n");
+fprintf("BATCH PROCESSING COMPLETE\n");
+fprintf("Processed: %d images\n",numImages);
+fprintf("Results saved in:\n");
+fprintf("%s\n",outputFolder);
+fprintf("============================================\n");
