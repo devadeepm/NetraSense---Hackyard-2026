@@ -1,12 +1,13 @@
 # NetraSense - Adaptive Retinal Screening AI & 3D-Printed Hardware (Hackyard 2026)
 
-BUILD 2026 Submission 
+BUILD 2026 Submission  
 An end-to-end, low-cost diabetic retinopathy (DR) screening pipeline combining a 3D-printed smartphone adapter, MATLAB-assisted optical quality gating, multi-task lesion segmentation, and KL-anchored clinician RLHF.
 
 ---
 
-Project Demo & Presentation
+## Project Demo & Presentation
 * **Watch the Video Demo:** [NetraSense Demo Walkthrough (Google Drive)](https://drive.google.com/file/d/14a7HKVSnaQPbePSgQ4wUk6hhX6Ago4Qr/view?usp=sharing)
+* **Sample Fundus & Result Images:** [NetraSense Demo Images Folder (Google Drive)](https://drive.google.com/drive/folders/1maapR4iSoNl-SaP4cdFXWEq9AVurF7XF?usp=sharing)
 * **Slide Presentation:** [NetraSense_Presentation.pdf](./NetraSense_Presentation.pdf)
 
 ---
@@ -33,6 +34,7 @@ NetraSense solves this with a complete modular ecosystem:
 ├── hemorrhage_detection.m.txt          # MATLAB script for extracting hemorrhage lesion regions
 ├── microaneurysm_detection.m.txt       # MATLAB script for detecting microaneurysms
 └── netrasense-hackyard-ml-rlhf.ipynb   # Main ML training, inference, and RLHF adaptation notebook
+
 What We Built During BUILD 2026
 Hardware Prototyping (.stl): Designed and modeled a portable, 3D-printed smartphone fundus camera attachment to cut equipment barriers.
 
@@ -46,21 +48,22 @@ hemorrhage_detection.m.txt & microaneurysm_detection.m.txt: Rule-based and morph
 
 Machine Learning & RLHF (.ipynb): Developed PyTorch training pipelines for multi-task DR grading and implemented KL-divergence anchored reinforcement learning from human feedback (RLHF) to safely update model weights from clinician corrections without catastrophic forgetting.
 
-**Quick Start Guide**
+Quick Start Guide
 1. Hardware Assembly
 Open fundus_camera_complete_assembly.stl in any standard 3D slicer (PrusaSlicer, Cura) and print using PLA filament. Assemble with standard optical lenses and align with your smartphone camera.
 
 2. Run MATLAB Quality & Feature Extraction
-Open MATLAB and run quality_filter.m on your raw fundus images to verify image usability.
+Open MATLAB and run quality_filter.m on your raw fundus images (or sample images from our Drive Folder) to verify image usability.
 
 Use image_enhancement.m.txt, hemorrhage_detection.m.txt, and microaneurysm_detection.m.txt for preprocessing and lesion region extraction.
 
 3. Run the ML & RLHF Notebook
-Launch Jupyter Notebook or Google Colab:
+Launch Jupyter Notebook or Colab:
 
 **Bash**
 jupyter notebook netrasense-hackyard-ml-rlhf.ipynb
+
 Execute the cells to load models, perform inference, test quality gates, and run the RLHF weight-adaptation loop.
 
 Team & Acknowledgments
-Developed for Hackyard BUILD 2026 by the Team OptiQ.
+Developed for Hackyard BUILD 2026 by Team OptiQ.
