@@ -6,12 +6,6 @@
 
 *An end-to-end, low-cost diabetic retinopathy (DR) screening pipeline, from a 3D-printed phone adapter to clinician-in-the-loop AI.*
 
-![Hackathon](https://img.shields.io/badge/Hackyard-BUILD%202026-blueviolet?style=for-the-badge)
-![Team](https://img.shields.io/badge/Team-OptiQ-informational?style=for-the-badge)
-![PyTorch](https://img.shields.io/badge/PyTorch-ML%20%2B%20RLHF-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
-![MATLAB](https://img.shields.io/badge/MATLAB-Optical%20Pipeline-0076A8?style=for-the-badge)
-![Hardware](https://img.shields.io/badge/3D%20Printed-STL-success?style=for-the-badge)
-
 [Video Demo](https://drive.google.com/file/d/14a7HKVSnaQPbePSgQ4wUk6hhX6Ago4Qr/view?usp=sharing) •
 [Sample Images](https://drive.google.com/drive/folders/1maapR4iSoNl-SaP4cdFXWEq9AVurF7XF?usp=sharing) •
 [Slides](https://drive.google.com/file/d/1LKeeMtHG5_bl3H-GGnNfFqNwllP864lx/view?usp=sharing)
@@ -153,6 +147,6 @@ Developed for **Hackyard BUILD 2026** by **Team OptiQ**.
 
 <div align="center">
 
-*Making retinal screening accessible, one scan at a time.* 👁️
+*Making retinal screening accessible, one scan at a time.* 
 
 </div>
