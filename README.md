@@ -58,7 +58,7 @@ Use image_enhancement.m.txt, hemorrhage_detection.m.txt, and microaneurysm_detec
 3. Run the ML & RLHF Notebook
 Launch Jupyter Notebook or Google Colab:
 
-Bash
+**Bash**
 jupyter notebook netrasense-hackyard-ml-rlhf.ipynb
 Execute the cells to load models, perform inference, test quality gates, and run the RLHF weight-adaptation loop.
 
