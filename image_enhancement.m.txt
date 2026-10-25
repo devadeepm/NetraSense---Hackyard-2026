@@ -1,0 +1,72 @@
+clc;
+clear;
+close all;
+inputpath="C:\Users\shuvr\Downloads\WhatsApp Image 2026-10-21 at 3.46.59 PM.jpeg"
+I = imread(inputpath);
+targetSize = 1200;
+
+I = imread(inputpath);
+scale = targetSize / max(size(I,1), size(I,2));
+I_resized = imresize(I, scale);
+
+
+disp('Image size:');
+disp(size(I));
+gray = rgb2gray(I);
+
+
+mask = gray > 10;
+
+mask = imfill(mask,'holes');
+mask = bwareafilt(mask,1);
+
+
+G = I(:,:,2);
+
+%%RETINAL MASK
+G(~mask) = 0;
+
+
+% Convert to double
+G_double = im2double(G);
+
+% Illumination estimation
+background = imgaussfilt(G_double,30);
+
+% Illumination correction
+corrected = G_double - background;
+
+% Normalize
+corrected = mat2gray(corrected);
+
+
+corrected(~mask) = 0;
+
+
+claheImage = adapthisteq(corrected, ...
+    'ClipLimit', 0.003, ...
+    'NumTiles', [8 8]);
+claheImage(~mask)=0
+
+
+%% MEDIAN FILTERING
+medianImage = medfilt2(claheImage, [3 3]);
+
+%% RETINAL MASK
+medianImage(~mask) = 0;
+
+
+
+%% 8. Denoising
+
+denoised = medfilt2(medianImage, [3 3]);
+
+% Apply retinal mask
+denoised(~mask) = 0;
+
+figure;
+imshow(denoised, [3 3]);
+title('Final Enhanced Fundus Image');
+
+
+
