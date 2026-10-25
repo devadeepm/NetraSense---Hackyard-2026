@@ -8,7 +8,8 @@ An end-to-end, low-cost diabetic retinopathy (DR) screening pipeline combining a
 ## Project Demo & Presentation
 * **Watch the Video Demo:** [NetraSense Demo Walkthrough (Google Drive)](https://drive.google.com/file/d/14a7HKVSnaQPbePSgQ4wUk6hhX6Ago4Qr/view?usp=sharing)
 * **Sample Fundus & Result Images:** [NetraSense Demo Images Folder (Google Drive)](https://drive.google.com/drive/folders/1maapR4iSoNl-SaP4cdFXWEq9AVurF7XF?usp=sharing)
-* **Slide Presentation:** [NetraSense_Presentation.pdf](./NetraSense_Presentation.pdf)
+* **Slide Presentation:** [NetraSense_Presentation.pdf]
+(https://drive.google.com/file/d/1LKeeMtHG5_bl3H-GGnNfFqNwllP864lx/view?usp=sharing)
 
 ---
 
