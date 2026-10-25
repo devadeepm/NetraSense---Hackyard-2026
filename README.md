@@ -36,7 +36,7 @@ NetraSense solves this with a complete modular ecosystem:
 ├── microaneurysm_detection.m.txt       # MATLAB script for detecting microaneurysms
 └── netrasense-hackyard-ml-rlhf.ipynb   # Main ML training, inference, and RLHF adaptation notebook
 
-What We Built During BUILD 2026
+## What We Built During BUILD 2026
 Hardware Prototyping (.stl): Designed and modeled a portable, 3D-printed smartphone fundus camera attachment to cut equipment barriers.
 
 MATLAB Optical Pipeline (.m / .txt files):
@@ -49,7 +49,7 @@ hemorrhage_detection.m.txt & microaneurysm_detection.m.txt: Rule-based and morph
 
 Machine Learning & RLHF (.ipynb): Developed PyTorch training pipelines for multi-task DR grading and implemented KL-divergence anchored reinforcement learning from human feedback (RLHF) to safely update model weights from clinician corrections without catastrophic forgetting.
 
-Quick Start Guide
+## Quick Start Guide
 1. Hardware Assembly
 Open fundus_camera_complete_assembly.stl in any standard 3D slicer (PrusaSlicer, Cura) and print using PLA filament. Assemble with standard optical lenses and align with your smartphone camera.
 
@@ -66,5 +66,5 @@ jupyter notebook netrasense-hackyard-ml-rlhf.ipynb
 
 Execute the cells to load models, perform inference, test quality gates, and run the RLHF weight-adaptation loop.
 
-Team & Acknowledgments
+## Team
 Developed for Hackyard BUILD 2026 by Team OptiQ.
